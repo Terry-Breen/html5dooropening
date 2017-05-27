@@ -1,0 +1,27 @@
+{
+  "name": "html5dooropening",
+  "version": "1.0.0",
+  "description": "Simple browser game",
+  "main": "build/index.html",
+  "scripts": {
+    "browserify": "node node_modules/browserify/bin/cmd.js",
+    "build": "node node_modules/browserify/bin/cmd.js code/main.js > build/scripts/bundle.js",
+    "watch": "node node_modules/watchify/bin/cmd.js code/main.js -o build/scripts/bundle.js",
+    "serve": "node node_modules/http-server/bin/http-server build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Terry-Breen/html5dooropening.git"
+  },
+  "author": "Terry Breen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Terry-Breen/html5dooropening/issues"
+  },
+  "homepage": "https://github.com/Terry-Breen/html5dooropening#readme",
+  "devDependencies": {
+    "browserify": "^14.3.0",
+    "http-server": "^0.10.0",
+    "watchify": "^3.9.0"
+  }
+}
