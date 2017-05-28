@@ -1,177 +1,226 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var createGrid = require("./uniformmesh.js").createUniformGridMesh;
+/**
+ * A Door has an animation which gradually plays as the Door is opened
+ * by dragging a pointer a distance specified by openDist.
+ *
+ * Door.opened can be queried to determine if the door is entirely open.
+ * The Door can be set to start locked, which prevents the animation from
+ * proceeding and prevents the Door reaching the opened state.
+ */
+exports.Door = class Door{
+    /**
+     * @param {array} textures --- Textures of the animation in order.
+     * @param {number} openDist --- How far pointer dragged to completely open door.
+     *                              Animation is interpolated.
+     * @param {boolean} [locked=false] --- Whether door starts locked.
+     */
+    constructor(textures, openDist, locked){
+        if(typeof(locked) === "undefined"){
+            locked = false;
+        }
+
+        this.textures = textures;
+        //Distance will be negative since doors open by dragging to the left
+        this.openDist = -openDist;
+        this.opened = false;
+        this.locked = locked;
+        this.dist = 0;
+        this.sprite = new PIXI.Sprite(textures[0]);
+        this.sprite.door = this;
+
+        //Add input listening
+        this.sprite.interactive = true;
+        this.sprite
+            .on("pointerdown", onDown)
+            .on("pointermove", onDrag)
+            .on("pointerup", onUp)
+            .on("pointerupoutside", onUp);
+    }
+
+    setPosition(x, y){
+        this.sprite.x = x;
+        this.sprite.y = y;
+    }
+}
+
+function onDown(e){
+    this.lastPos = e.data.getLocalPosition(this.parent);
+    this.dragging = true;
+}
+
+function onDrag(e){
+    var door = this.door;
+    if(this.dragging && !door.locked){
+        //Update total distance dragged so far
+        var newPos = e.data.getLocalPosition(this.parent);
+        var deltaX = newPos.x - this.lastPos.x;
+        door.dist += deltaX;
+        door.dist = Math.min(door.dist, 0);
+        door.dist = Math.max(door.dist, door.openDist);
+        this.lastPos = newPos;
+
+        //Update the sprite's texture based on the distance
+        //Also set whether door is completely opened or not
+        var newIdx = Math.floor(door.textures.length * (door.dist / door.openDist));
+        if(newIdx === door.textures.length){
+            newIdx -= 1;
+        }
+        door.opened = newIdx === door.textures.length - 1;
+        this.texture = door.textures[newIdx];
+    }
+}
+
+function onUp(e){
+    this.dragging = false;
+    console.log("Door opened: " + this.door.opened);
+}
+
+},{}],2:[function(require,module,exports){
+/**
+ * A lock unlocks a locked Door after some condition is met.
+ */
+class Lock{
+    constructor(door){
+        this.door = door;
+    }
+
+    unlock(){
+        this.door.locked = false;
+    }
+
+    lock(){
+        this.door.locked = true;
+    }
+}
+exports.Lock = Lock;
+
+/**
+ * Wheel lock is a type of lock that is opened by clicking on a wheel
+ * and rotating the wheel by dragging the pointer in a circle.
+ */
+exports.WheelLock = class WheelLock extends Lock{
+    /**
+     * @param {array} textures --- Textures of the animation in order.
+     * @param {number} cycles --- How many complete rotations of wheel unlocks
+     *                            the door. Animation is interpolated.
+     */
+    constructor(door, textures, cycles){
+        super(door);
+
+        this.textures = textures;
+        this.cyclesComplete = 0;
+        this.cycles = cycles;
+
+        //Create sprite and add interactivity
+        this.sprite = new PIXI.Sprite(textures[0]);
+        this.sprite.anchor.x = 0.5;
+        this.sprite.anchor.y = 0.5;
+        this.sprite.wheel = this;
+
+        this.sprite.interactive = true;
+        this.sprite
+            .on("pointerdown", wheelOnDown)
+            .on("pointermove", wheelOnDrag)
+            .on("pointerup", wheelOnUp)
+            .on("pointerupoutside", wheelOnUp);
+    }
+
+    setPosition(x, y){
+        this.sprite.x = x;
+        this.sprite.y = y;
+    }
+}
+
+function wheelOnDown(e){
+    this.lastPos = e.data.getLocalPosition(this.parent);
+    this.dragging = true;
+}
+
+function wheelOnDrag(e){
+    if(this.dragging){
+        //Use dot product to get the angle around the wheel which the mouse
+        //was dragged
+        var pos = e.data.getLocalPosition(this.parent);
+        var newVecX = pos.x - this.x;
+        var newVecY = pos.y - this.y;
+        var lastVecX = this.lastPos.x - this.x;
+        var lastVecY = this.lastPos.y - this.y;
+
+        var newVecLength = Math.sqrt(newVecX * newVecX + newVecY * newVecY);
+        var lastVecLength = Math.sqrt(lastVecX * lastVecX + lastVecY * lastVecY);
+        var dotProd = newVecX * lastVecX + newVecY * lastVecY;
+        var angle = Math.acos(dotProd / (newVecLength * lastVecLength));
+        var numCycles = angle / (2 * Math.PI);
+
+        //Use cross product newVec x lastVec to get the direction
+        //(clockwise or counter-clockwise) which the mouse was dragged
+        var crossZ = newVecX * lastVecY - lastVecX * newVecY;
+        var sign = Math.sign(crossZ);
+
+        var wheel = this.wheel;
+
+        //Update number of completed cycles. Won't go over max number of cycles
+        //needed for opening lock.
+        wheel.cyclesComplete += numCycles * sign;
+        wheel.cyclesComplete = Math.min(wheel.cycles, wheel.cyclesComplete);
+        wheel.cyclesComplete = Math.max(0, wheel.cyclesComplete);
+
+        if(wheel.cyclesComplete >= wheel.cycles){
+            wheel.unlock();
+        }else{
+            wheel.lock();
+        }
+
+        //Update animation frame of wheel turning
+        var numFrames = wheel.textures.length;
+        var quarterCyclesComplete = wheel.cyclesComplete * 4;
+        var newFrame = Math.floor(quarterCyclesComplete * numFrames) % numFrames;
+        this.texture = wheel.textures[newFrame];
+
+        //Update last position of the mouse
+        this.lastPos = pos;
+    }
+}
+
+function wheelOnUp(){
+    this.dragging = false;
+}
+
+},{}],3:[function(require,module,exports){
+var Door = require("./door.js").Door;
+var WheelLock = require("./lock.js").WheelLock;
 
 var app = new PIXI.Application(200, 305);
 document.body.appendChild(app.view);
 PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
-PIXI.loader.add("assets/gridmesh1x1.png").add("assets/gridmesh2x2.png").load(onLoad);
+PIXI.loader.add("assets/sprites.json").load(onLoad);
 
 function onLoad() {
     var stage = new PIXI.Container();
-    //var t1x1 = PIXI.Texture.fromFrame("assets/gridmesh1x1.png");
-    var t2x2 = PIXI.Texture.fromFrame("assets/gridmesh2x2.png");
+    var hatchFrames = [
+        PIXI.Texture.fromFrame("hatch_000.png"),
+        PIXI.Texture.fromFrame("hatch_001.png"),
+        PIXI.Texture.fromFrame("hatch_002.png")
+    ];
 
-    grid = createGrid(t2x2, 2, 2);
+    var hatch = new Door(hatchFrames, 25);
 
-    console.log(grid.indices);
+    var wheelFrames = [
+        PIXI.Texture.fromFrame("hatchwheel_000.png"),
+        PIXI.Texture.fromFrame("hatchwheel_001.png"),
+        PIXI.Texture.fromFrame("hatchwheel_002.png"),
+        PIXI.Texture.fromFrame("hatchwheel_003.png")
+    ];
 
-    stage.addChild(grid);
+    var wheel = new WheelLock(hatch, wheelFrames, 2);
+
+    stage.addChild(hatch.sprite);
+
+    wheel.setPosition(21,30);
+    stage.addChild(wheel.sprite);
+
+    stage.scale.set(5,5);
     app.stage.addChild(stage);
 }
 
-},{"./uniformmesh.js":2}],2:[function(require,module,exports){
-exports.createUniformGridMesh = function (texture, numRows, numCols){
-    numRows = numRows || 1;
-    numCols = numCols || 1;
-
-    var txWidth = texture.width;
-    var txHeight = texture.height;
-    //Dimensions of a grid cell
-    var cellWidth = txWidth / numCols;
-    var cellHeight = txHeight / numRows;
-
-    var vertices = [];
-    var uvs = [];
-
-    //Create vertices for each corner of a grid cell
-    var x;
-    var y;
-    for(y = 0; y <= numRows; y++){
-        for(x = 0; x <= numCols; x++){
-            var pointX = x * cellWidth;
-            var pointY = y * cellHeight;
-            vertices.push(pointX);
-            vertices.push(pointY);
-
-            uvs.push(pointX / txWidth);
-            uvs.push(pointY / txHeight);
-        }
-    }
-    var numCornerPts = (numRows + 1) * (numCols + 1);
-
-    //Create vertices for the center of each grid cell
-    for(y = 0; y < numRows; y++){
-        for(x = 0; x < numCols; x++){
-            var pointX = x * cellWidth + cellWidth / 2;
-            var pointY = y * cellHeight + cellHeight / 2;
-            vertices.push(pointX);
-            vertices.push(pointY);
-
-            uvs.push(pointX / txWidth);
-            uvs.push(pointY / txHeight);
-        }
-    }
-
-    //Calculate the indices in order to create the grid mesh pattern.
-    var indices = [];
-    var leftToRight = true;
-    var numColCorners = numCols + 1;
-    for(y = 0; y < numRows; y++){
-        var topLeft;
-        var topRight;
-        var center;
-        var botLeft;
-        var botRight;
-        if(leftToRight){
-            for(x = 0; x < numCols; x++){
-                topLeft = y * numColCorners + x;
-                topRight = y * numColCorners + x + 1;
-                center = y * numCols + x + numCornerPts;
-                botLeft = (y + 1) * numColCorners + x;
-                botRight = (y + 1) * numColCorners + x + 1;
-                indices.push(topLeft);
-                indices.push(topRight);
-                indices.push(center);
-                indices.push(topLeft);
-                indices.push(botLeft);
-                indices.push(center);
-                indices.push(botRight);
-            }
-            indices.push(topRight);
-            indices.push(botRight);
-        }else{
-            for(x = numCols - 1; x >= 0; x--){
-                topLeft = y * numColCorners + x;
-                topRight = y * numColCorners + x + 1;
-                center = y * numCols + x + numCornerPts;
-                botLeft = (y + 1) * numColCorners + x;
-                botRight = (y + 1) * numColCorners + x + 1;
-                indices.push(topRight);
-                indices.push(topLeft);
-                indices.push(center);
-                indices.push(topRight);
-                indices.push(botRight);
-                indices.push(center);
-                indices.push(botLeft);
-            }
-            indices.push(topLeft);
-            indices.push(botLeft);
-        }
-
-        leftToRight = !leftToRight;
-    }
-
-    //Create and return the mesh
-    vertices = new Float32Array(vertices);
-    uvs = new Float32Array(uvs);
-    indices = new Uint16Array(indices);
-
-    var mesh = new PIXI.mesh.Mesh(texture, vertices, uvs, indices);
-
-    //--- For debugging ---
-    mesh.interactive = true;
-    mesh.on("pointerdown", onDown)
-        .on("pointermove", onDrag)
-        .on("pointerup", onUp)
-        .on("pointerupoutside", onUp);
-
-    //---------------------
-
-    return mesh;
-}
-
-//Following functions are for interacting with the grid by dragging points on it
-
-//Returns the index of the vertex in mesh closest to point (x,y)
-function getIndexOfClosestVertex(mesh, x, y){
-    var closestIdx;
-    var closestSqrdDist;
-
-    var vertices = mesh.vertices;
-    var count;
-    for(count = 0; count < vertices.length; count += 2){
-        var vertX = vertices[count];
-        var vertY = vertices[count + 1];
-        var xDiff = x - vertX;
-        var yDiff = y - vertY;
-        var sqrdDist = xDiff * xDiff + yDiff * yDiff;
-
-        if(closestSqrdDist === undefined || closestSqrdDist > sqrdDist){
-            closestIdx = count / 2;
-            closestSqrdDist = sqrdDist;
-        }
-    }
-
-    return closestIdx;
-}
-
-function onDown(e){
-    this.dragging = true;
-    var pos = e.data.getLocalPosition(this.parent);
-    this.dragVertIdx = getIndexOfClosestVertex(this, pos.x, pos.y);
-}
-
-function onDrag(e){
-    if(this.dragging){
-        var pos = e.data.getLocalPosition(this.parent);
-        var vertXIdx = this.dragVertIdx * 2;
-        this.vertices[vertXIdx] = pos.x;
-        this.vertices[vertXIdx + 1] = pos.y;
-    }
-}
-
-function onUp(){
-    this.dragging = false;
-}
-
-},{}]},{},[1]);
+},{"./door.js":1,"./lock.js":2}]},{},[3]);

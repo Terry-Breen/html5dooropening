@@ -5,14 +5,15 @@
  * Door.opened can be queried to determine if the door is entirely open.
  * The Door can be set to start locked, which prevents the animation from
  * proceeding and prevents the Door reaching the opened state.
- *
- * @param {array} textures --- Textures of the animation in order.
- * @param {number} openDist --- How far pointer dragged to completely open door.
- *                              Animation is interpolated.
- * @param {boolean} [locked=false] --- Whether door starts locked.
  */
 exports.Door = class Door{
-    constructor(x, y, container, textures, openDist, locked){
+    /**
+     * @param {array} textures --- Textures of the animation in order.
+     * @param {number} openDist --- How far pointer dragged to completely open door.
+     *                              Animation is interpolated.
+     * @param {boolean} [locked=false] --- Whether door starts locked.
+     */
+    constructor(textures, openDist, locked){
         if(typeof(locked) === "undefined"){
             locked = false;
         }
@@ -24,8 +25,6 @@ exports.Door = class Door{
         this.locked = locked;
         this.dist = 0;
         this.sprite = new PIXI.Sprite(textures[0]);
-        this.sprite.x = x;
-        this.sprite.y = y;
         this.sprite.door = this;
 
         //Add input listening
@@ -35,8 +34,11 @@ exports.Door = class Door{
             .on("pointermove", onDrag)
             .on("pointerup", onUp)
             .on("pointerupoutside", onUp);
+    }
 
-        container.addChild(this.sprite);
+    setPosition(x, y){
+        this.sprite.x = x;
+        this.sprite.y = y;
     }
 }
 
@@ -58,18 +60,16 @@ function onDrag(e){
 
         //Update the sprite's texture based on the distance
         //Also set whether door is completely opened or not
-        var newIdx = Math.floor(door.textures.length * (door.dist / door.openDist))
+        var newIdx = Math.floor(door.textures.length * (door.dist / door.openDist));
         if(newIdx === door.textures.length){
-            door.opened = true;
             newIdx -= 1;
-        }else{
-            door.opened = false;
         }
+        door.opened = newIdx === door.textures.length - 1;
         this.texture = door.textures[newIdx];
     }
 }
 
 function onUp(e){
     this.dragging = false;
-    console.log(this.door.opened);
+    console.log("Door opened: " + this.door.opened);
 }
