@@ -8,12 +8,15 @@
  */
 exports.Door = class Door{
     /**
-     * @param {array} textures --- Textures of the animation in order.
+     * @param {PIXI.Texture[]} textures --- Textures of the animation in order.
      * @param {number} openDist --- How far pointer dragged to completely open door.
      *                              Animation is interpolated.
      * @param {boolean} [locked=false] --- Whether door starts locked.
+     * @param {object[]} [hideOnOpen=[]] --- Array of objects with method setVisible(boolean).
+     *                                  When the door is fully closed, true will be passed,
+     *                                  otherwise false will be passed to setVisible.
      */
-    constructor(textures, openDist, locked){
+    constructor(textures, openDist, locked, hideOnOpen){
         if(typeof(locked) === "undefined"){
             locked = false;
         }
@@ -21,9 +24,10 @@ exports.Door = class Door{
         this.textures = textures;
         //Distance will be negative since doors open by dragging to the left
         this.openDist = -openDist;
+        this.dist = 0;
         this.opened = false;
         this.locked = locked;
-        this.dist = 0;
+        this.hideOnOpen = hideOnOpen || [];
         this.sprite = new PIXI.Sprite(textures[0]);
         this.sprite.door = this;
 
@@ -39,6 +43,13 @@ exports.Door = class Door{
     setPosition(x, y){
         this.sprite.x = x;
         this.sprite.y = y;
+    }
+
+    /**
+     * For adding objects to hideOnOpen that require the door in their constructor.
+     */
+    addToHiddenOnOpen(obj){
+        this.hideOnOpen.push(obj);
     }
 }
 
@@ -66,6 +77,13 @@ function onDrag(e){
         }
         door.opened = newIdx === door.textures.length - 1;
         this.texture = door.textures[newIdx];
+
+        //Apply setVisible to the objects in hideOnOpen
+        var count;
+        var visible = newIdx === 0;
+        for(count = 0; count < door.hideOnOpen.length; count++){
+            door.hideOnOpen[count].setVisible(visible);
+        }
     }
 }
 

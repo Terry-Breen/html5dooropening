@@ -45,11 +45,17 @@ exports.WheelLock = class WheelLock extends Lock{
             .on("pointermove", wheelOnDrag)
             .on("pointerup", wheelOnUp)
             .on("pointerupoutside", wheelOnUp);
+
+        door.addToHiddenOnOpen(this);
     }
 
     setPosition(x, y){
         this.sprite.x = x;
         this.sprite.y = y;
+    }
+
+    setVisible(visible){
+        this.sprite.visible = visible;
     }
 }
 
