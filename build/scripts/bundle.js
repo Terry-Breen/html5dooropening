@@ -12,23 +12,15 @@ exports.Door = class Door{
      * @param {PIXI.Texture[]} textures --- Textures of the animation in order.
      * @param {number} openDist --- How far pointer dragged to completely open door.
      *                              Animation is interpolated.
-     * @param {boolean} [locked=false] --- Whether door starts locked.
-     * @param {object[]} [hideOnOpen=[]] --- Array of objects with method setVisible(boolean).
-     *                                  When the door is fully closed, true will be passed,
-     *                                  otherwise false will be passed to setVisible.
+     * @param {Lock[]} [locks=[]] --- Locks which must all be unlocked for the door to open.
      */
-    constructor(textures, openDist, locked, hideOnOpen){
-        if(typeof(locked) === "undefined"){
-            locked = false;
-        }
-
+    constructor(textures, openDist, locks){
         this.textures = textures;
         //Distance will be negative since doors open by dragging to the left
         this.openDist = -openDist;
         this.dist = 0;
         this.opened = false;
-        this.locked = locked;
-        this.hideOnOpen = hideOnOpen || [];
+        this.locks = locks || [];
         this.sprite = new PIXI.Sprite(textures[0]);
         this.sprite.door = this;
 
@@ -47,10 +39,25 @@ exports.Door = class Door{
     }
 
     /**
-     * For adding objects to hideOnOpen that require the door in their constructor.
+     * Returns true if all locks are unlocked.
      */
-    addToHiddenOnOpen(obj){
-        this.hideOnOpen.push(obj);
+    isLocked(){
+        var locked = false;
+        var count;
+        for(count = 0; count < this.locks.length; count++){
+            locked = this.locks[count].locked || locked;
+        }
+        return locked;
+    }
+
+    /**
+     * Set visibility of all locks (such as hiding them when door is not fully closed)
+     */
+    setLockVisibility(visible){
+        var count;
+        for(count = 0; count < this.locks.length; count++){
+            this.locks[count].setVisible(visible);
+        }
     }
 }
 
@@ -61,7 +68,7 @@ function onDown(e){
 
 function onDrag(e){
     var door = this.door;
-    if(this.dragging && !door.locked){
+    if(this.dragging && !door.isLocked()){
         //Update total distance dragged so far
         var newPos = e.data.getLocalPosition(this.parent);
         var deltaX = newPos.x - this.lastPos.x;
@@ -79,12 +86,9 @@ function onDrag(e){
         door.opened = newIdx === door.textures.length - 1;
         this.texture = door.textures[newIdx];
 
-        //Apply setVisible to the objects in hideOnOpen
-        var count;
-        var visible = newIdx === 0;
-        for(count = 0; count < door.hideOnOpen.length; count++){
-            door.hideOnOpen[count].setVisible(visible);
-        }
+        //Hide locks if door not fully closed, or show if fully closed
+        var locksVisible = newIdx === 0;
+        door.setLockVisibility(locksVisible);
     }
 }
 
@@ -95,20 +99,17 @@ function onUp(e){
 
 },{}],2:[function(require,module,exports){
 /**
- * A lock unlocks a locked Door after some condition is met.
+ * A lock gets unlocked after some condition is met.
  */
 class Lock{
-    constructor(door){
-        this.door = door;
+    constructor(){
+        this.locked = true;
     }
 
-    unlock(){
-        this.door.locked = false;
-    }
-
-    lock(){
-        this.door.locked = true;
-    }
+    /**
+     * Sets the visibility of the lock.
+     */
+    setVisible(visible){}
 }
 exports.Lock = Lock;
 
@@ -120,10 +121,10 @@ exports.WheelLock = class WheelLock extends Lock{
     /**
      * @param {array} textures --- Textures of the animation in order.
      * @param {number} cycles --- How many complete rotations of wheel unlocks
-     *                            the door. Animation is interpolated.
+     *                            the lock. Animation is interpolated.
      */
-    constructor(door, textures, cycles){
-        super(door);
+    constructor(textures, cycles){
+        super();
 
         this.textures = textures;
         this.cyclesComplete = 0;
@@ -141,8 +142,6 @@ exports.WheelLock = class WheelLock extends Lock{
             .on("pointermove", wheelOnDrag)
             .on("pointerup", wheelOnUp)
             .on("pointerupoutside", wheelOnUp);
-
-        door.addToHiddenOnOpen(this);
     }
 
     setPosition(x, y){
@@ -189,11 +188,7 @@ function wheelOnDrag(e){
         wheel.cyclesComplete = Math.min(wheel.cycles, wheel.cyclesComplete);
         wheel.cyclesComplete = Math.max(0, wheel.cyclesComplete);
 
-        if(wheel.cyclesComplete >= wheel.cycles){
-            wheel.unlock();
-        }else{
-            wheel.lock();
-        }
+        wheel.locked = !(wheel.cyclesComplete >= wheel.cycles);
 
         //Update animation frame of wheel turning
         var numFrames = wheel.textures.length;
@@ -221,14 +216,8 @@ PIXI.loader.add("assets/sprites.json").load(onLoad);
 
 function onLoad() {
     var stage = new PIXI.Container();
-    var hatchFrames = [
-        PIXI.Texture.fromFrame("hatch_000.png"),
-        PIXI.Texture.fromFrame("hatch_001.png"),
-        PIXI.Texture.fromFrame("hatch_002.png")
-    ];
 
-    var hatch = new Door(hatchFrames, 25);
-
+    //Create locks
     var wheelFrames = [
         PIXI.Texture.fromFrame("hatchwheel_000.png"),
         PIXI.Texture.fromFrame("hatchwheel_001.png"),
@@ -236,7 +225,18 @@ function onLoad() {
         PIXI.Texture.fromFrame("hatchwheel_003.png")
     ];
 
-    var wheel = new WheelLock(hatch, wheelFrames, 2);
+    var wheel = new WheelLock(wheelFrames, 2);
+
+    var locks = [wheel];
+
+    //Create door
+    var hatchFrames = [
+        PIXI.Texture.fromFrame("hatch_000.png"),
+        PIXI.Texture.fromFrame("hatch_001.png"),
+        PIXI.Texture.fromFrame("hatch_002.png")
+    ];
+
+    var hatch = new Door(hatchFrames, 25, locks);
 
     stage.addChild(hatch.sprite);
 

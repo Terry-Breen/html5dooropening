@@ -11,23 +11,15 @@ exports.Door = class Door{
      * @param {PIXI.Texture[]} textures --- Textures of the animation in order.
      * @param {number} openDist --- How far pointer dragged to completely open door.
      *                              Animation is interpolated.
-     * @param {boolean} [locked=false] --- Whether door starts locked.
-     * @param {object[]} [hideOnOpen=[]] --- Array of objects with method setVisible(boolean).
-     *                                  When the door is fully closed, true will be passed,
-     *                                  otherwise false will be passed to setVisible.
+     * @param {Lock[]} [locks=[]] --- Locks which must all be unlocked for the door to open.
      */
-    constructor(textures, openDist, locked, hideOnOpen){
-        if(typeof(locked) === "undefined"){
-            locked = false;
-        }
-
+    constructor(textures, openDist, locks){
         this.textures = textures;
         //Distance will be negative since doors open by dragging to the left
         this.openDist = -openDist;
         this.dist = 0;
         this.opened = false;
-        this.locked = locked;
-        this.hideOnOpen = hideOnOpen || [];
+        this.locks = locks || [];
         this.sprite = new PIXI.Sprite(textures[0]);
         this.sprite.door = this;
 
@@ -46,10 +38,25 @@ exports.Door = class Door{
     }
 
     /**
-     * For adding objects to hideOnOpen that require the door in their constructor.
+     * Returns true if all locks are unlocked.
      */
-    addToHiddenOnOpen(obj){
-        this.hideOnOpen.push(obj);
+    isLocked(){
+        var locked = false;
+        var count;
+        for(count = 0; count < this.locks.length; count++){
+            locked = this.locks[count].locked || locked;
+        }
+        return locked;
+    }
+
+    /**
+     * Set visibility of all locks (such as hiding them when door is not fully closed)
+     */
+    setLockVisibility(visible){
+        var count;
+        for(count = 0; count < this.locks.length; count++){
+            this.locks[count].setVisible(visible);
+        }
     }
 }
 
@@ -60,7 +67,7 @@ function onDown(e){
 
 function onDrag(e){
     var door = this.door;
-    if(this.dragging && !door.locked){
+    if(this.dragging && !door.isLocked()){
         //Update total distance dragged so far
         var newPos = e.data.getLocalPosition(this.parent);
         var deltaX = newPos.x - this.lastPos.x;
@@ -78,12 +85,9 @@ function onDrag(e){
         door.opened = newIdx === door.textures.length - 1;
         this.texture = door.textures[newIdx];
 
-        //Apply setVisible to the objects in hideOnOpen
-        var count;
-        var visible = newIdx === 0;
-        for(count = 0; count < door.hideOnOpen.length; count++){
-            door.hideOnOpen[count].setVisible(visible);
-        }
+        //Hide locks if door not fully closed, or show if fully closed
+        var locksVisible = newIdx === 0;
+        door.setLockVisibility(locksVisible);
     }
 }
 

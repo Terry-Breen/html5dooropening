@@ -1,18 +1,15 @@
 /**
- * A lock unlocks a locked Door after some condition is met.
+ * A lock gets unlocked after some condition is met.
  */
 class Lock{
-    constructor(door){
-        this.door = door;
+    constructor(){
+        this.locked = true;
     }
 
-    unlock(){
-        this.door.locked = false;
-    }
-
-    lock(){
-        this.door.locked = true;
-    }
+    /**
+     * Sets the visibility of the lock.
+     */
+    setVisible(visible){}
 }
 exports.Lock = Lock;
 
@@ -24,10 +21,10 @@ exports.WheelLock = class WheelLock extends Lock{
     /**
      * @param {array} textures --- Textures of the animation in order.
      * @param {number} cycles --- How many complete rotations of wheel unlocks
-     *                            the door. Animation is interpolated.
+     *                            the lock. Animation is interpolated.
      */
-    constructor(door, textures, cycles){
-        super(door);
+    constructor(textures, cycles){
+        super();
 
         this.textures = textures;
         this.cyclesComplete = 0;
@@ -45,8 +42,6 @@ exports.WheelLock = class WheelLock extends Lock{
             .on("pointermove", wheelOnDrag)
             .on("pointerup", wheelOnUp)
             .on("pointerupoutside", wheelOnUp);
-
-        door.addToHiddenOnOpen(this);
     }
 
     setPosition(x, y){
@@ -93,11 +88,7 @@ function wheelOnDrag(e){
         wheel.cyclesComplete = Math.min(wheel.cycles, wheel.cyclesComplete);
         wheel.cyclesComplete = Math.max(0, wheel.cyclesComplete);
 
-        if(wheel.cyclesComplete >= wheel.cycles){
-            wheel.unlock();
-        }else{
-            wheel.lock();
-        }
+        wheel.locked = !(wheel.cyclesComplete >= wheel.cycles);
 
         //Update animation frame of wheel turning
         var numFrames = wheel.textures.length;
