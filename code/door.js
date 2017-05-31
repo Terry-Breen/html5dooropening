@@ -44,7 +44,7 @@ exports.Door = class Door{
         var locked = false;
         var count;
         for(count = 0; count < this.locks.length; count++){
-            locked = this.locks[count].locked || locked;
+            locked = this.locks[count].isLocked() || locked;
         }
         return locked;
     }

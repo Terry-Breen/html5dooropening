@@ -2,46 +2,26 @@
  * A lock gets unlocked after some condition is met.
  */
 class Lock{
-    constructor(){
-        this.locked = true;
-    }
-
     /**
      * Sets the visibility of the lock.
      */
     setVisible(visible){}
+
+    /**
+     * Returns true if lock is locked.
+     */
+     isLocked(){return false;}
 }
-exports.Lock = Lock;
+
 
 /**
- * Wheel lock is a type of lock that is opened by clicking on a wheel
- * and rotating the wheel by dragging the pointer in a circle.
+ * Sprite lock is a lock that displays using a sprite.
  */
-exports.WheelLock = class WheelLock extends Lock{
-    /**
-     * @param {array} textures --- Textures of the animation in order.
-     * @param {number} cycles --- How many complete rotations of wheel unlocks
-     *                            the lock. Animation is interpolated.
-     */
-    constructor(textures, cycles){
+class SpriteLock extends Lock{
+    constructor(sprite){
         super();
 
-        this.textures = textures;
-        this.cyclesComplete = 0;
-        this.cycles = cycles;
-
-        //Create sprite and add interactivity
-        this.sprite = new PIXI.Sprite(textures[0]);
-        this.sprite.anchor.x = 0.5;
-        this.sprite.anchor.y = 0.5;
-        this.sprite.wheel = this;
-
-        this.sprite.interactive = true;
-        this.sprite
-            .on("pointerdown", wheelOnDown)
-            .on("pointermove", wheelOnDrag)
-            .on("pointerup", wheelOnUp)
-            .on("pointerupoutside", wheelOnUp);
+        this.sprite = sprite;
     }
 
     setPosition(x, y){
@@ -51,6 +31,38 @@ exports.WheelLock = class WheelLock extends Lock{
 
     setVisible(visible){
         this.sprite.visible = visible;
+    }
+}
+
+/**
+ * Wheel lock is a type of lock that is opened by clicking on a wheel
+ * and rotating the wheel by dragging the pointer in a circle.
+ */
+exports.WheelLock = class WheelLock extends SpriteLock{
+    /**
+     * @param {array} textures --- Textures of the animation in order.
+     * @param {number} cycles --- How many complete rotations of wheel unlocks
+     *                            the lock. Animation is interpolated.
+     */
+    constructor(textures, cycles){
+        super(new PIXI.Sprite(textures[0]));
+        this.sprite.wheel = this;
+
+        this.textures = textures;
+        this.cyclesComplete = 0;
+        this.cycles = cycles;
+
+        //Add sprite interactivity
+        this.sprite.interactive = true;
+        this.sprite
+            .on("pointerdown", wheelOnDown)
+            .on("pointermove", wheelOnDrag)
+            .on("pointerup", wheelOnUp)
+            .on("pointerupoutside", wheelOnUp);
+    }
+
+    isLocked(){
+        return !(this.cyclesComplete >= this.cycles);
     }
 }
 
@@ -88,8 +100,6 @@ function wheelOnDrag(e){
         wheel.cyclesComplete = Math.min(wheel.cycles, wheel.cyclesComplete);
         wheel.cyclesComplete = Math.max(0, wheel.cyclesComplete);
 
-        wheel.locked = !(wheel.cyclesComplete >= wheel.cycles);
-
         //Update animation frame of wheel turning
         var numFrames = wheel.textures.length;
         var quarterCyclesComplete = wheel.cyclesComplete * 4;
@@ -103,4 +113,47 @@ function wheelOnDrag(e){
 
 function wheelOnUp(){
     this.dragging = false;
+}
+
+
+/**
+ * Button lock alternates between the unpressed locked state and pressed
+ * unlocked state when clicked on.
+ */
+ exports.ButtonLock = class ButtonLock extends SpriteLock{
+     constructor(offTexture, onTexture, startsOff){
+         super(createButtonSprite(offTexture, onTexture, startsOff));
+         this.sprite.button = this;
+
+         this.offTexture = offTexture;
+         this.onTexture = onTexture;
+         this.off = startsOff;
+
+         //Add interactivity
+         this.sprite.interactive = true;
+         this.sprite.on("pointertap", buttonOnTap);
+     }
+
+     isLocked(){
+         return this.off;
+     }
+ }
+
+//Helper for ButtonLock constructor
+function createButtonSprite(offTexture, onTexture, startsOff){
+    if(startsOff){
+        return new PIXI.Sprite(offTexture);
+    }else{
+        return new PIXI.Sprite(onTexture);
+    }
+}
+
+function buttonOnTap(){
+    if(this.button.off){
+        this.texture = this.button.onTexture;
+    }else{
+        this.texture = this.button.offTexture;
+    }
+
+    this.button.off = !this.button.off;
 }

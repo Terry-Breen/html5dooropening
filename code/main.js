@@ -1,5 +1,7 @@
 var Door = require("./door.js").Door;
-var WheelLock = require("./lock.js").WheelLock;
+var Lock = require("./lock.js");
+var WheelLock = Lock.WheelLock;
+var ButtonLock = Lock.ButtonLock;
 
 var app = new PIXI.Application(200, 305);
 document.body.appendChild(app.view);
@@ -10,6 +12,7 @@ function onLoad() {
     var stage = new PIXI.Container();
 
     //Create locks
+    //Wheel lock
     var wheelFrames = [
         PIXI.Texture.fromFrame("hatchwheel_000.png"),
         PIXI.Texture.fromFrame("hatchwheel_001.png"),
@@ -19,7 +22,12 @@ function onLoad() {
 
     var wheel = new WheelLock(wheelFrames, 2);
 
-    var locks = [wheel];
+    //Button lock
+    var butOn = PIXI.Texture.fromFrame("buttons_000.png");
+    var butOff = PIXI.Texture.fromFrame("buttons_001.png");
+    var button = new ButtonLock(butOff, butOn, true)
+
+    var locks = [wheel, button];
 
     //Create door
     var hatchFrames = [
@@ -32,8 +40,11 @@ function onLoad() {
 
     stage.addChild(hatch.sprite);
 
-    wheel.setPosition(21,30);
+    wheel.setPosition(17, 25);
     stage.addChild(wheel.sprite);
+
+    button.setPosition(10,7);
+    stage.addChild(button.sprite);
 
     stage.scale.set(5,5);
     app.stage.addChild(stage);
