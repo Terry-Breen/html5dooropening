@@ -71,20 +71,35 @@ function wheelOnDown(e){
     this.dragging = true;
 }
 
+//Helper for wheelOnDrag. Returns center of sprite assuming sprite has the
+//default anchor and pivot.
+function getCenterPt(sprite){
+    var ptX = sprite.x + sprite.width / 2;
+    var ptY = sprite.y + sprite.height / 2;
+    return new PIXI.Point(ptX, ptY);
+}
+
 function wheelOnDrag(e){
     if(this.dragging){
         //Use dot product to get the angle around the wheel which the mouse
         //was dragged
+        var center = getCenterPt(this);
         var pos = e.data.getLocalPosition(this.parent);
-        var newVecX = pos.x - this.x;
-        var newVecY = pos.y - this.y;
-        var lastVecX = this.lastPos.x - this.x;
-        var lastVecY = this.lastPos.y - this.y;
+        var newVecX = pos.x - center.x;
+        var newVecY = pos.y - center.y;
+        var lastVecX = this.lastPos.x - center.x;
+        var lastVecY = this.lastPos.y - center.y;
 
         var newVecLength = Math.sqrt(newVecX * newVecX + newVecY * newVecY);
         var lastVecLength = Math.sqrt(lastVecX * lastVecX + lastVecY * lastVecY);
         var dotProd = newVecX * lastVecX + newVecY * lastVecY;
         var angle = Math.acos(dotProd / (newVecLength * lastVecLength));
+
+        //angle might be NaN due to floating point error. Default to 0
+        if(isNaN(angle)){
+            angle = 0;
+        }
+
         var numCycles = angle / (2 * Math.PI);
 
         //Use cross product newVec x lastVec to get the direction
