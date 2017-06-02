@@ -98,6 +98,59 @@ function onUp(e){
 }
 
 },{}],2:[function(require,module,exports){
+var Door = require("./door.js");
+var Lock = require("./lock.js");
+
+//How far mouse must be dragged to completely open door
+const OPEN_DIST = 25;
+//Number of cycles a wheel lock must be dragged to unlock
+const WHEEL_CYCLES = 2;
+
+//Sprite resources for doors and locks
+var resources = {};
+
+//To be called when PIXI is done loading. Initializes door and lock textures
+exports.createTextures = function createTextures(){
+    resources.doorFrames = [
+        PIXI.Texture.fromFrame("door_000.png"),
+        PIXI.Texture.fromFrame("door_001.png"),
+        PIXI.Texture.fromFrame("door_002.png")
+    ];
+
+    resources.hatchFrames = [
+        PIXI.Texture.fromFrame("hatch_000.png"),
+        PIXI.Texture.fromFrame("hatch_001.png"),
+        PIXI.Texture.fromFrame("hatch_002.png")
+    ];
+
+    resources.wheelFrames = [
+        PIXI.Texture.fromFrame("hatchwheel_000.png"),
+        PIXI.Texture.fromFrame("hatchwheel_001.png"),
+        PIXI.Texture.fromFrame("hatchwheel_002.png"),
+        PIXI.Texture.fromFrame("hatchwheel_003.png")
+    ];
+}
+
+//Functions which create various combinations of doors and locks and add
+//them to the specified PIXI.Container
+
+exports.PlainDoor = function PlainDoor(container){
+    var door = new Door.Door(resources.doorFrames, OPEN_DIST);
+    container.addChild(door.sprite);
+    return {"door": door, "locks": []};
+}
+
+exports.WheelHatch = function WheelHatch(container){
+    var wheel = new Lock.WheelLock(resources.wheelFrames, WHEEL_CYCLES);
+    var locks = [wheel];
+    var door = new Door.Door(resources.hatchFrames, 25, locks);
+    wheel.setPosition(17, 25);
+    container.addChild(door.sprite);
+    container.addChild(wheel.sprite);
+    return {"door": door, "locks": locks};
+}
+
+},{"./door.js":1,"./lock.js":3}],3:[function(require,module,exports){
 /**
  * A lock gets unlocked after some condition is met.
  */
@@ -273,11 +326,8 @@ function buttonOnTap(){
     this.button.off = !this.button.off;
 }
 
-},{}],3:[function(require,module,exports){
-var Door = require("./door.js").Door;
-var Lock = require("./lock.js");
-var WheelLock = Lock.WheelLock;
-var ButtonLock = Lock.ButtonLock;
+},{}],4:[function(require,module,exports){
+var DoorCreators = require("./doorcreators.js");
 
 var app = new PIXI.Application(200, 305);
 document.body.appendChild(app.view);
@@ -285,45 +335,11 @@ PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 PIXI.loader.add("assets/sprites.json").load(onLoad);
 
 function onLoad() {
+    DoorCreators.createTextures();
     var stage = new PIXI.Container();
-
-    //Create locks
-    //Wheel lock
-    var wheelFrames = [
-        PIXI.Texture.fromFrame("hatchwheel_000.png"),
-        PIXI.Texture.fromFrame("hatchwheel_001.png"),
-        PIXI.Texture.fromFrame("hatchwheel_002.png"),
-        PIXI.Texture.fromFrame("hatchwheel_003.png")
-    ];
-
-    var wheel = new WheelLock(wheelFrames, 2);
-
-    //Button lock
-    var butOn = PIXI.Texture.fromFrame("buttons_000.png");
-    var butOff = PIXI.Texture.fromFrame("buttons_001.png");
-    var button = new ButtonLock(butOff, butOn, true)
-
-    var locks = [wheel, button];
-
-    //Create door
-    var hatchFrames = [
-        PIXI.Texture.fromFrame("hatch_000.png"),
-        PIXI.Texture.fromFrame("hatch_001.png"),
-        PIXI.Texture.fromFrame("hatch_002.png")
-    ];
-
-    var hatch = new Door(hatchFrames, 25, locks);
-
-    stage.addChild(hatch.sprite);
-
-    wheel.setPosition(17, 25);
-    stage.addChild(wheel.sprite);
-
-    button.setPosition(10,7);
-    stage.addChild(button.sprite);
-
+    DoorCreators.PlainDoor(stage);
     stage.scale.set(5,5);
     app.stage.addChild(stage);
 }
 
-},{"./door.js":1,"./lock.js":2}]},{},[3]);
+},{"./doorcreators.js":2}]},{},[4]);
