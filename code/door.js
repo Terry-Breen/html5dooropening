@@ -58,6 +58,21 @@ exports.Door = class Door{
             this.locks[count].setVisible(visible);
         }
     }
+
+    /**
+     * Resets the door and its locks to their starting configuration
+     */
+     reset(){
+         var count;
+         for(count = 0; count < this.locks.length; count++){
+             var lock = this.locks[count];
+             lock.reset();
+             lock.setVisible(true);
+         }
+         this.opened = false;
+         this.dist = 0;
+         this.sprite.texture = this.textures[0];
+     }
 }
 
 function onDown(e){

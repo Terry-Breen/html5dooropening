@@ -8,6 +8,11 @@ class Lock{
     setVisible(visible){}
 
     /**
+     * Resets lock to starting configuration
+     */
+     reset(){}
+
+    /**
      * Returns true if lock is locked.
      */
      isLocked(){return false;}
@@ -59,6 +64,11 @@ exports.WheelLock = class WheelLock extends SpriteLock{
             .on("pointermove", wheelOnDrag)
             .on("pointerup", wheelOnUp)
             .on("pointerupoutside", wheelOnUp);
+    }
+
+    reset(){
+        this.cyclesComplete = 0;
+        this.sprite.texture = this.textures[0];
     }
 
     isLocked(){
@@ -143,10 +153,20 @@ function wheelOnUp(){
          this.offTexture = offTexture;
          this.onTexture = onTexture;
          this.off = startsOff;
+         this.startsOff = startsOff;
 
          //Add interactivity
          this.sprite.interactive = true;
          this.sprite.on("pointertap", buttonOnTap);
+     }
+
+     reset(){
+         this.off = this.startsOff;
+         if(this.startsOff){
+             this.sprite.texture = this.offTexture;
+         }else{
+             this.sprite.texture = this.onTexture;
+         }
      }
 
      isLocked(){
